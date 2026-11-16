@@ -34,7 +34,7 @@ func (r *Report) Render() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# amh consolidate proposals (%s)\n\n", r.GeneratedAt.Format(time.RFC3339))
 	fmt.Fprintf(&b, "Scanned %d active memories. Proposal only — nothing was changed.\n", r.Scanned)
-	fmt.Fprintf(&b, "Apply with: `amh review retire <id>` or the web UI.\n\n")
+	fmt.Fprintf(&b, "Apply with: `amh review reject <id>` (retires the memory) or the web UI.\n\n")
 	if len(r.Suggestions) == 0 {
 		b.WriteString("_No duplicates or contradictions detected._\n")
 		return b.String()
