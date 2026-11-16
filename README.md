@@ -7,7 +7,7 @@
 
 amh 与其他 Agent 编排项目相互独立：不引用、不依赖，也不适配它们的内部实现。
 
-> 当前仓库仍处于早期开发阶段。安装脚本和 MCP Registry manifest 中的 `OWNER/amh` 是发布前占位符，正式发布前请替换为实际 GitHub 仓库。
+> 当前仓库仍处于早期开发阶段。安装脚本和 MCP Registry manifest 已指向本仓库；正式发布前仍需创建 GitHub Release 供安装脚本下载。
 
 ## 为什么是 amh
 
@@ -38,7 +38,7 @@ Claude Code / Codex / other Agents
 需要 Go 1.27 或更高版本：
 
 ```sh
-git clone https://github.com/OWNER/amh.git
+git clone https://github.com/msz-legend/amh.git
 cd amh
 go build -o amh ./cmd/amh
 ```
@@ -51,16 +51,16 @@ go build -o amh.exe ./cmd/amh
 
 ### 发布包安装
 
-发布 GitHub Release 后，安装脚本可以直接使用。将下面的 `OWNER/amh` 替换为实际仓库地址：
+发布 GitHub Release 后，安装脚本可以直接使用。将下面的 `msz-legend/amh` 替换为实际仓库地址：
 
 ```sh
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/OWNER/amh/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/msz-legend/amh/main/scripts/install.sh | sh
 ```
 
 ```powershell
 # Windows PowerShell
-iwr https://raw.githubusercontent.com/OWNER/amh/main/scripts/install.ps1 -UseBasicParsing | iex
+iwr https://raw.githubusercontent.com/msz-legend/amh/main/scripts/install.ps1 -UseBasicParsing | iex
 ```
 
 安装脚本支持 `AMH_VERSION` 和 `AMH_INSTALL_DIR`；源码构建可使用 `AMH_BUILD_FROM_SOURCE=1`。
