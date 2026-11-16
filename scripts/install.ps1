@@ -1,6 +1,6 @@
 # amh installer (Windows): iwr https://raw.githubusercontent.com/<owner>/amh/main/scripts/install.ps1 -useb | iex
 $ErrorActionPreference = 'Stop'
-$Repo = if ($env:AMH_REPO) { $env:AMH_REPO } else { 'OWNER/amh' }   # set to <owner>/amh at release
+$Repo = if ($env:AMH_REPO) { $env:AMH_REPO } else { 'msz-legend/amh' }
 $Version = if ($env:AMH_VERSION) { $env:AMH_VERSION } else { 'latest' }
 $InstallDir = if ($env:AMH_INSTALL_DIR) { $env:AMH_INSTALL_DIR } else { Join-Path $HOME '.amh\bin' }
 

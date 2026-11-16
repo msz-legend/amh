@@ -10,7 +10,7 @@ import (
 	"amh/internal/store"
 )
 
-const version = "0.0.1-dev"
+var version = "0.0.1-dev"
 
 func amhHome() string {
 	if h := os.Getenv("AMH_HOME"); h != "" {

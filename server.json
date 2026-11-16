@@ -1,12 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.manifest.json",
-  "name": "io.github.OWNER/amh",
+  "name": "io.github.msz-legend/amh",
   "description": "AgentMemory Hub — cross-agent shared memory for Claude Code, Codex and other CLI agents. Stores decisions, gotchas, preferences and handoffs in a local SQLite+Markdown hub and serves them back over MCP.",
   "version": "0.1.0",
   "packages": [
     {
       "registryType": "github-release",
-      "identifier": "OWNER/amh",
+      "identifier": "msz-legend/amh",
       "transport": {
         "type": "stdio",
         "command": "amh",

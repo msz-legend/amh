@@ -1,7 +1,7 @@
 #!/bin/sh
 # amh installer: curl -fsSL https://raw.githubusercontent.com/<owner>/amh/main/scripts/install.sh | sh
 set -eu
-REPO="${AMH_REPO:-OWNER/amh}"          # set to <owner>/amh at release
+REPO="${AMH_REPO:-msz-legend/amh}"
 VERSION="${AMH_VERSION:-latest}"
 INSTALL_DIR="${AMH_INSTALL_DIR:-$HOME/.amh/bin}"
 
