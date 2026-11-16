@@ -67,16 +67,16 @@ func (t Trust) Valid() bool {
 
 // Memory is the core record. Immutable once active except for status/superseded_by.
 type Memory struct {
-	ID           string
-	Type         Type
-	Content      string
-	ProjectKey   string // normalized git remote or escaped cwd fallback
-	SourceAgent  string // "claude-code", "codex", ... — decided by client config, never model self-report
-	Trust        Trust
-	Status       Status
-	SupersededBy string // empty unless retired via supersede/forget
-	FirstSeen    time.Time
-	CreatedAt    time.Time
+	ID           string    `json:"id"`
+	Type         Type      `json:"type"`
+	Content      string    `json:"content"`
+	ProjectKey   string    `json:"project"` // normalized git remote or escaped cwd fallback
+	SourceAgent  string    `json:"agent"`   // "claude-code", "codex", ... — decided by client config, never model self-report
+	Trust        Trust     `json:"trust"`
+	Status       Status    `json:"status"`
+	SupersededBy string    `json:"superseded_by,omitempty"` // empty unless retired via supersede/forget
+	FirstSeen    time.Time `json:"first_seen"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 var (

@@ -1,6 +1,7 @@
 // Package extract turns session-end spool files into proposed memories via
-// an OpenAI-compatible chat endpoint (local Ollama by default; override with
-// AMH_EXTRACT_BASE_URL / AMH_EXTRACT_API_KEY / AMH_EXTRACT_MODEL).
+// an external OpenAI-compatible chat endpoint. It is opt-in: set
+// AMH_EXTRACT_BASE_URL and AMH_EXTRACT_MODEL (AMH_EXTRACT_API_KEY optional).
+// Without configuration, extraction is disabled and skipped cleanly.
 package extract
 
 import (
@@ -32,13 +33,20 @@ type Spool struct {
 	SpooledAt      string `json:"spooled_at"`
 }
 
-// Config controls the extraction worker.
+// Config controls the extraction worker. BaseURL and Model are REQUIRED —
+// there is no built-in default endpoint.
 type Config struct {
-	BaseURL string // default http://127.0.0.1:11434/v1
+	BaseURL string // e.g. https://api.deepseek.com/v1
 	APIKey  string // optional Authorization: Bearer
-	Model   string // default qwen3:4b
+	Model   string // e.g. deepseek-chat
 	Timeout time.Duration
 }
+
+// ErrNotConfigured is returned when BaseURL or Model is missing.
+var ErrNotConfigured = errors.New("extract: AMH_EXTRACT_BASE_URL / AMH_EXTRACT_MODEL not set; external extraction disabled")
+
+// Configured reports whether the worker has an endpoint to call.
+func (c Config) Configured() bool { return c.BaseURL != "" && c.Model != "" }
 
 const maxTranscriptChars = 20000
 
@@ -136,16 +144,11 @@ type Candidate struct {
 // Extract calls the model and parses candidates. Network/parse failures are
 // reported as error; the spool stays pending for a later retry.
 func Extract(ctx context.Context, cfg Config, digest string) ([]Candidate, error) {
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = "http://127.0.0.1:11434/v1"
-	}
-	if cfg.Model == "" {
-		cfg.Model = "qwen3:4b"
+	if !cfg.Configured() {
+		return nil, ErrNotConfigured
 	}
 	if cfg.Timeout == 0 {
-		// Local models warm up on first call and think before answering;
-		// 15s is too tight in practice, so default to 2 minutes.
-		cfg.Timeout = 120 * time.Second
+		cfg.Timeout = 60 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -313,9 +316,14 @@ func markDone(spoolPath string) error {
 }
 
 // Run walks the spool directory, oldest first, and processes each file.
-// Model unreachability is not fatal: it stops the run quietly (exit 0) so
-// hosts calling amh extract are never blocked; spool files stay pending.
+// A missing configuration or an unreachable endpoint is not fatal: it stops
+// the run quietly (exit 0) so hosts calling amh extract are never blocked;
+// spool files stay pending for a later retry.
 func Run(ctx context.Context, db DB, cfg Config, spoolDir string, dryRun bool) (processed, inserted int, err error) {
+	if !dryRun && !cfg.Configured() {
+		fmt.Fprintln(os.Stderr, "amh: "+ErrNotConfigured.Error())
+		return 0, 0, nil
+	}
 	entries, err := os.ReadDir(spoolDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

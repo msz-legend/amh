@@ -102,7 +102,7 @@ func TestProcessSpoolInsertsProposed(t *testing.T) {
 	db.MigrateUp()
 	path := writeSpool(t, dir, sampleTranscript)
 	srv := fakeModel(t, "[{\"type\":\"decision\",\"content\":\"team uses SQLite\"}]")
-	n, err := ProcessSpool(context.Background(), db, Config{BaseURL: srv.URL}, path)
+	n, err := ProcessSpool(context.Background(), db, Config{BaseURL: srv.URL, Model: "test-model"}, path)
 	if err != nil {
 		t.Fatalf("process: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestRunUnreachableDegradesQuietly(t *testing.T) {
 	db.MigrateUp()
 	path := writeSpool(t, dir, sampleTranscript)
 	// Port 1 is closed.
-	p, i, err := Run(context.Background(), db, Config{BaseURL: "http://127.0.0.1:1", Timeout: 300 * time.Millisecond}, filepath.Join(dir, "spool"), false)
+	p, i, err := Run(context.Background(), db, Config{BaseURL: "http://127.0.0.1:1", Model: "test-model", Timeout: 300 * time.Millisecond}, filepath.Join(dir, "spool"), false)
 	if err != nil {
 		t.Fatalf("run should degrade quietly, got: %v", err)
 	}
@@ -141,6 +141,30 @@ func TestRunUnreachableDegradesQuietly(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Error("spool file should remain pending after unreachable model")
+	}
+}
+
+func TestRunNotConfiguredSkipsQuietly(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "db.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.MigrateUp()
+	path := writeSpool(t, dir, sampleTranscript)
+	p, i, err := Run(context.Background(), db, Config{}, filepath.Join(dir, "spool"), false)
+	if err != nil {
+		t.Fatalf("unconfigured run should exit 0 quietly, got: %v", err)
+	}
+	if p != 0 || i != 0 {
+		t.Errorf("unconfigured run touched spool: p=%d i=%d", p, i)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Error("spool file should remain pending when unconfigured")
+	}
+	if _, err := os.Stat(path + ".done"); !os.IsNotExist(err) {
+		t.Error("no .done marker should exist when unconfigured")
 	}
 }
 
