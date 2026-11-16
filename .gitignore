@@ -1,5 +1,7 @@
 bin/
 *.db
 *.db-journal
-amh
-amh.exe
+/amh
+/amh.exe
+amh-test.exe
+amh-chk.exe
