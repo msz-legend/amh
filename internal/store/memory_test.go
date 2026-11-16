@@ -26,17 +26,27 @@ func openTestDB(t *testing.T) (*DB, func()) {
 func TestMigrateUpDown(t *testing.T) {
 	db, cleanup := openTestDB(t)
 	defer cleanup()
-	if v, err := db.SchemaVersion(); err != nil || v != 1 {
-		t.Fatalf("version = %d, %v; want 1", v, err)
+	if v, err := db.SchemaVersion(); err != nil || v != 2 {
+		t.Fatalf("version = %d, %v; want 2", v, err)
+	}
+	// Each MigrateDown rolls back exactly one step.
+	if err := db.MigrateDown(); err != nil {
+		t.Fatalf("MigrateDown v2: %v", err)
+	}
+	if v, _ := db.SchemaVersion(); v != 1 {
+		t.Fatalf("version after first down = %d, want 1", v)
 	}
 	if err := db.MigrateDown(); err != nil {
-		t.Fatalf("MigrateDown: %v", err)
+		t.Fatalf("MigrateDown v1: %v", err)
 	}
 	if v, _ := db.SchemaVersion(); v != 0 {
-		t.Fatalf("version after down = %d, want 0", v)
+		t.Fatalf("version after second down = %d, want 0", v)
 	}
 	if err := db.MigrateUp(); err != nil {
 		t.Fatalf("re-up: %v", err)
+	}
+	if v, _ := db.SchemaVersion(); v != 2 {
+		t.Fatalf("version after re-up = %d, want 2", v)
 	}
 }
 

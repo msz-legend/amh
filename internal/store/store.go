@@ -83,6 +83,39 @@ DROP INDEX IF EXISTS idx_memories_project_status;
 DROP TABLE memories;
 `,
 	},
+	// v2: FTS5 full-text index over memories (external-content table, kept in
+	// sync by triggers so every write path — store, UI, review — stays correct).
+	{
+		version: 2,
+		up: `
+CREATE VIRTUAL TABLE memories_fts USING fts5(
+	content, project_key, source_agent, type,
+	content='memories', content_rowid='rowid'
+);
+CREATE TRIGGER memories_fts_ai AFTER INSERT ON memories BEGIN
+	INSERT INTO memories_fts(rowid, content, project_key, source_agent, type)
+	VALUES (new.rowid, new.content, new.project_key, new.source_agent, new.type);
+END;
+CREATE TRIGGER memories_fts_ad AFTER DELETE ON memories BEGIN
+	INSERT INTO memories_fts(memories_fts, rowid, content, project_key, source_agent, type)
+	VALUES ('delete', old.rowid, old.content, old.project_key, old.source_agent, old.type);
+END;
+CREATE TRIGGER memories_fts_au AFTER UPDATE OF content, project_key, source_agent, type ON memories BEGIN
+	INSERT INTO memories_fts(memories_fts, rowid, content, project_key, source_agent, type)
+	VALUES ('delete', old.rowid, old.content, old.project_key, old.source_agent, old.type);
+	INSERT INTO memories_fts(rowid, content, project_key, source_agent, type)
+	VALUES (new.rowid, new.content, new.project_key, new.source_agent, new.type);
+END;
+INSERT INTO memories_fts(rowid, content, project_key, source_agent, type)
+	SELECT rowid, content, project_key, source_agent, type FROM memories;
+`,
+		down: `
+DROP TRIGGER IF EXISTS memories_fts_au;
+DROP TRIGGER IF EXISTS memories_fts_ad;
+DROP TRIGGER IF EXISTS memories_fts_ai;
+DROP TABLE IF EXISTS memories_fts;
+`,
+	},
 }
 
 // MigrateUp applies all pending migrations.

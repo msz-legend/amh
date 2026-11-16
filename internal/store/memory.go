@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"amh/internal/memory"
@@ -132,39 +131,4 @@ func (db *DB) List(status memory.Status, projectKey string, limit int) ([]*memor
 	return out, rows.Err()
 }
 
-// Search does keyword recall over active memories: every whitespace-separated
-// term must appear in content, type, project_key or source_agent (AND semantics).
-// B-stage simple version; FTS5 + recency boost lands in E1.
-func (db *DB) Search(query, projectKey string, limit int) ([]*memory.Memory, error) {
-	terms := strings.Fields(query)
-	if limit <= 0 {
-		limit = 10
-	}
-	q := `SELECT ` + memCols + ` FROM memories WHERE status = ?`
-	args := []any{string(memory.StatusActive)}
-	for _, t := range terms {
-		pat := `%` + strings.ReplaceAll(strings.ReplaceAll(t, `\`, `\\`), `%`, `\%`) + `%`
-		q += ` AND (content LIKE ? ESCAPE '\' OR type LIKE ? ESCAPE '\' OR project_key LIKE ? ESCAPE '\' OR source_agent LIKE ? ESCAPE '\')`
-		args = append(args, pat, pat, pat, pat)
-	}
-	if projectKey != "" {
-		q += ` AND project_key = ?`
-		args = append(args, projectKey)
-	}
-	q += ` ORDER BY created_at DESC LIMIT ?`
-	args = append(args, limit)
-	rows, err := db.Query(q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []*memory.Memory
-	for rows.Next() {
-		m, err := scanMemory(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, m)
-	}
-	return out, rows.Err()
-}
+// Search is implemented in search.go (FTS5 + LIKE fallback).
