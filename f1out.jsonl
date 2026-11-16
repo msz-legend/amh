@@ -1,3 +1,0 @@
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"tools":{}},"protocolVersion":"2024-11-05","serverInfo":{"name":"amh","version":"0.0.1-dev"}}}
-{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"stored decision [trust=explicit agent=codex id=651aae1838b0f9d9038ae28754670986 project=f1/repo]","type":"text"}]}}
-{"jsonrpc":"2.0","id":3,"result":{"content":[{"text":"stored decision [trust=explicit agent=codex id=f1a9846f726ee27055b211c07f08fcc1 project=f1/repo]","type":"text"}]}}

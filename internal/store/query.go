@@ -2,6 +2,7 @@ package store
 
 import (
 	"strings"
+	"time"
 
 	"amh/internal/memory"
 	"amh/internal/secrets"
@@ -153,4 +154,58 @@ func (db *DB) Update(id string, f UpdateFields) (*memory.Memory, error) {
 		return nil, ErrNotFound
 	}
 	return m, nil
+}
+
+// Upsert inserts or replaces a full memory row by id (reindex path: the
+// Markdown cards pulled from git are the source of truth). FTS triggers keep
+// the full-text index in sync.
+func (db *DB) Upsert(m *memory.Memory) error {
+	if err := m.Normalize(time.Now()); err != nil {
+		return err
+	}
+	if !secrets.Clean(m.Content) {
+		return ErrSecretDetected
+	}
+	_, err := db.Exec(`INSERT INTO memories (`+memCols+`) VALUES (?,?,?,?,?,?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET
+		type = excluded.type, content = excluded.content,
+		project_key = excluded.project_key, source_agent = excluded.source_agent,
+		trust = excluded.trust, status = excluded.status,
+		superseded_by = excluded.superseded_by,
+		first_seen = excluded.first_seen, created_at = excluded.created_at`,
+		m.ID, string(m.Type), m.Content, m.ProjectKey, m.SourceAgent,
+		string(m.Trust), string(m.Status), m.SupersededBy,
+		Time(m.FirstSeen), Time(m.CreatedAt))
+	return err
+}
+
+// PruneExcept deletes every memory row whose id is not in keep (used by
+// `amh reindex --prune` so the DB matches the card tree exactly).
+func (db *DB) PruneExcept(keep map[string]bool) (int64, error) {
+	rows, err := db.Query(`SELECT id FROM memories`)
+	if err != nil {
+		return 0, err
+	}
+	var stale []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if !keep[id] {
+			stale = append(stale, id)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
+	for _, id := range stale {
+		if _, err := db.Exec(`DELETE FROM memories WHERE id = ?`, id); err != nil {
+			return 0, err
+		}
+	}
+	return int64(len(stale)), nil
 }

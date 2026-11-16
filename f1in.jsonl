@@ -1,3 +1,0 @@
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"remember","arguments":{"type":"decision","content":"deploy pipeline uses wrangler staging env with retry and rollback flags"}}}
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"remember","arguments":{"type":"decision","content":"deploy pipeline uses wrangler staging env with retry and rollback notes"}}}
