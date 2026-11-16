@@ -28,6 +28,17 @@ Agent hooks ─(session-start 注入 / session-end 采集)──────┤
 
 ## 快速开始
 
+**安装**（发布后；当前可用源码构建）：
+
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/OWNER/amh/main/scripts/install.sh | sh
+# Windows PowerShell
+iwr https://raw.githubusercontent.com/OWNER/amh/main/scripts/install.ps1 -useb | iex
+# 或从源码构建（Go 1.22+，零依赖免 CGO）
+go build -o amh ./cmd/amh   # Windows: go build -o amh.exe ./cmd/amh
+```
+
 ```sh
 go build -o amh ./cmd/amh
 
