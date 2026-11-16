@@ -143,7 +143,9 @@ func Extract(ctx context.Context, cfg Config, digest string) ([]Candidate, error
 		cfg.Model = "qwen3:4b"
 	}
 	if cfg.Timeout == 0 {
-		cfg.Timeout = 15 * time.Second
+		// Local models warm up on first call and think before answering;
+		// 15s is too tight in practice, so default to 2 minutes.
+		cfg.Timeout = 120 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -155,6 +157,7 @@ func Extract(ctx context.Context, cfg Config, digest string) ([]Candidate, error
 			{"role": "user", "content": digest},
 		},
 		"temperature": 0.1,
+		"max_tokens":  2048, // bound runaway reasoning; JSON answer is short
 	}
 	buf, _ := json.Marshal(reqBody)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.BaseURL+"/chat/completions", bytes.NewReader(buf))
@@ -187,31 +190,74 @@ func Extract(ctx context.Context, cfg Config, digest string) ([]Candidate, error
 	if len(out.Choices) == 0 {
 		return nil, fmt.Errorf("extract: empty choices")
 	}
-	return parseCandidates(out.Choices[0].Message.Content)
+	content := out.Choices[0].Message.Content
+	if os.Getenv("AMH_EXTRACT_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "amh: extract debug: model content (%d bytes):\n%s\n", len(content), content)
+	}
+	return parseCandidates(content)
 }
 
 // parseCandidates accepts a bare JSON array or one wrapped in prose/fences.
+// Elements may be objects {type, content} or strings "type: content" —
+// small local models frequently produce the latter.
 func parseCandidates(text string) ([]Candidate, error) {
 	start := strings.Index(text, "[")
 	end := strings.LastIndex(text, "]")
 	if start < 0 || end <= start {
 		return nil, nil // model found nothing or returned junk — treat as empty
 	}
-	var cands []Candidate
-	if err := json.Unmarshal([]byte(text[start:end+1]), &cands); err != nil {
+	var raw []json.RawMessage
+	if err := json.Unmarshal([]byte(text[start:end+1]), &raw); err != nil {
 		return nil, fmt.Errorf("extract: candidates not parseable: %w", err)
 	}
 	var kept []Candidate
-	for _, c := range cands {
-		if c.Content == "" || !c.Type.Valid() {
+	for i := 0; i < len(raw); i++ {
+		var c Candidate
+		if json.Unmarshal(raw[i], &c) == nil && c.Content != "" && c.Type.Valid() {
+			kept = append(kept, c)
 			continue
 		}
+		var s string
+		if json.Unmarshal(raw[i], &s) != nil {
+			continue
+		}
+		if parsed, ok := parseCandidateString(s); ok {
+			kept = append(kept, parsed)
+			continue
+		}
+		// Flattened pair form: ["decision", "content ..."] — a bare type
+		// label string followed by its content string.
+		if typ := memory.Type(strings.ToLower(strings.TrimSpace(s))); typ.Valid() && i+1 < len(raw) {
+			var next string
+			if json.Unmarshal(raw[i+1], &next) == nil && strings.TrimSpace(next) != "" {
+				kept = append(kept, Candidate{Type: typ, Content: strings.TrimSpace(next)})
+				i++
+			}
+		}
+	}
+	var out []Candidate
+	for _, c := range kept {
 		if !secrets.Clean(c.Content) {
 			continue // refuse to even propose secrets
 		}
-		kept = append(kept, c)
+		out = append(out, c)
 	}
-	return kept, nil
+	return out, nil
+}
+
+// parseCandidateString handles "decision: content..." (and "type - content").
+func parseCandidateString(s string) (Candidate, bool) {
+	s = strings.TrimSpace(s)
+	sep := strings.IndexAny(s, ":-")
+	if sep < 0 {
+		return Candidate{}, false
+	}
+	typ := memory.Type(strings.TrimSpace(strings.ToLower(s[:sep])))
+	content := strings.TrimSpace(s[sep+1:])
+	if content == "" || !typ.Valid() {
+		return Candidate{}, false
+	}
+	return Candidate{Type: typ, Content: content}, true
 }
 
 // ProcessSpool handles one spool file: digest, extract, insert as
@@ -303,7 +349,10 @@ func Run(ctx context.Context, db DB, cfg Config, spoolDir string, dryRun bool) (
 		inserted += n
 		if perr != nil {
 			if errors.Is(perr, errUnreachable) {
-				return processed, inserted, nil // degrade quietly; retry later
+				// Degrade quietly (hosts calling amh extract are never
+				// blocked) but leave a stderr trace for diagnosis.
+				fmt.Fprintf(os.Stderr, "amh: extract: model unreachable, leaving %s pending: %v\n", filepath.Base(f), perr)
+				return processed, inserted, nil // retry later
 			}
 			return processed, inserted, perr
 		}
